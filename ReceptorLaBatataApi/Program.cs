@@ -8,18 +8,33 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// ---> NUEVO: Habilitar CORS para que Neubox pueda leer la API <---
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("PermitirNeubox", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
+// ---> NUEVO: Activar CORS en la aplicación <---
+app.UseCors("PermitirNeubox");
+
 // 2. Activamos la página web de Swagger. 
-// NOTA: Lo ponemos "suelto" (sin el if de Development) para que lo puedas ver en tu VPS
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    // Esto hace que la página principal al entrar al servidor sea directamente Swagger
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "API La Batata v1");
     c.RoutePrefix = string.Empty;
 });
 
+// =====================================================================
+// MÉTODO 1: RECIBIR DATOS DEL WORKER (Este es tu código original POST)
+// =====================================================================
 app.MapPost("/api/sincronizar", async (List<ArticuloCompra> compras, IConfiguration config) =>
 {
     string connectionString = config.GetConnectionString("PostgresConnection");
@@ -58,6 +73,35 @@ app.MapPost("/api/sincronizar", async (List<ArticuloCompra> compras, IConfigurat
     }
 })
 .WithName("RecibirDatosEleventa")
-.WithOpenApi(); // Estas dos líneas le dan formato en la pantalla de Swagger
+.WithOpenApi();
+
+
+// =====================================================================
+// MÉTODO 2: MANDAR DATOS A NEUBOX (ESTE ES EL NUEVO GET)
+// =====================================================================
+app.MapGet("/api/surtido", async (IConfiguration config) =>
+{
+    string connectionString = config.GetConnectionString("PostgresConnection");
+
+    using var connection = new NpgsqlConnection(connectionString);
+    await connection.OpenAsync();
+
+    try
+    {
+        // Consultamos todo lo de la tabla ordenado por departamento
+        string querySelect = "SELECT * FROM public.reporte_compras ORDER BY departamento, descripcion;";
+
+        // Dapper lee la base de datos y arma la lista de forma automática
+        var listaSurtido = await connection.QueryAsync(querySelect);
+
+        return Results.Ok(listaSurtido);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem("Error al consultar en BD: " + ex.Message);
+    }
+})
+.WithName("ObtenerSurtidoPendiente")
+.WithOpenApi();
 
 app.Run();

@@ -2,7 +2,8 @@
 {
     public class ArticuloCompra
     {
-        public string CodigoBarras { get; set; }
+        public string CodigoBarras { get; set; 
+        }
         public string Descripcion { get; set; }
         public string Departamento { get; set; }
         public decimal StockActual { get; set; }
