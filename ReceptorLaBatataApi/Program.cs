@@ -45,6 +45,7 @@ app.MapPost("/api/sincronizar", async (List<ArticuloCompra> compras, IConfigurat
 
     try
     {
+        await connection.ExecuteAsync("DELETE FROM public.reporte_compras;", transaction: transaction);
         string queryUpsert = @"
             INSERT INTO public.reporte_compras 
             (codigo_barras, descripcion, departamento, stock_actual, punto_reorden, cantidad_comprar, costo_unitario, costo_total_estimado, ultima_actualizacion) 
